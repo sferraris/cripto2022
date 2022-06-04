@@ -4,4 +4,4 @@ project(cripto2022 C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(cripto2022
-        stegobmp.c)
+        stegobmp.c bpmreader.c bpmreader.h)
