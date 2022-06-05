@@ -13,50 +13,24 @@
 #define TRUE  1
 #define FALSE 0
 
-
-typedef struct {
-    unsigned short int type;                 /* Magic identifier            */
-    unsigned int size;                       /* File size in bytes          */
-    unsigned short int reserved1, reserved2;
-    unsigned int offset;                     /* Offset to image data, bytes */
-} HEADER;
-typedef struct {
-    unsigned int size;               /* Header size in bytes      */
-    int width,height;                /* Width and height of image */
-    unsigned short int planes;       /* Number of colour planes   */
-    unsigned short int bits;         /* Bits per pixel            */
-    unsigned int compression;        /* Compression type          */
-    unsigned int imagesize;          /* Image size in bytes       */
-    int xresolution,yresolution;     /* Pixels per meter          */
-    unsigned int ncolours;           /* Number of colours         */
-    unsigned int importantcolours;   /* Important colours         */
-} INFOHEADER;
-typedef struct {
-    unsigned char r,g,b,junk;
-} COLOURINDEX;
-
 int ReadUShort(FILE *,unsigned short *,int);
 int ReadUInt(FILE *,unsigned int *,int);
 
-int main(int argc,char **argv)
+void readbmp(const char * p)
 {
     int i,j;
-    int gotindex = FALSE;
-    unsigned char grey,r,g,b;
+    unsigned char r,g,b;
     HEADER header;
     INFOHEADER infoheader;
     COLOURINDEX colourindex[256];
     FILE *fptr;
+    FILE *out;
 
-    /* Check arguments */
-    if (argc < 2) {
-        fprintf(stderr,"Usage: %s filename\n",argv[0]);
-        exit(-1);
-    }
+    out = fopen("out.bmp", "wt");
 
     /* Open file */
-    if ((fptr = fopen(argv[1],"r")) == NULL) {
-        fprintf(stderr,"Unable to open BMP file \"%s\"\n",argv[1]);
+    if ((fptr = fopen(p,"r")) == NULL) {
+        fprintf(stderr,"Unable to open BMP file \"%s\"\n",p);
         exit(-1);
     }
 
@@ -111,57 +85,45 @@ int main(int argc,char **argv)
             fprintf(stderr,"%3d\t%3d\t%3d\t%3d\n",i,
                     colourindex[i].r,colourindex[i].g,colourindex[i].b);
         }
-        gotindex = TRUE;
     }
 
+//    printf("%X\n", header.type);
+//    printf("%X\n", header.size);
+    fwrite(&header.type, sizeof (unsigned short int), 1, out);
+    fwrite(&header.size, sizeof (unsigned int), 1, out);
+    fwrite(&header.reserved1, sizeof (unsigned short int), 1, out);
+    fwrite(&header.reserved2, sizeof (unsigned short int), 1, out);
+    fwrite(&header.offset, sizeof (unsigned int), 1, out);
+//    fclose(out);
+//    return;
+    fwrite(&infoheader, sizeof (INFOHEADER), 1, out);
     /* Seek to the start of the image data */
     fseek(fptr,header.offset,SEEK_SET);
+    fseek(out,header.offset,SEEK_SET);
 
     /* Read the image */
     for (j=0;j<infoheader.height;j++) {
         for (i=0;i<infoheader.width;i++) {
-
-            switch (infoheader.bits) {
-                case 1:
-                    break;
-                case 4:
-                    break;
-                case 8:
-                    if (fread(&grey,sizeof(unsigned char),1,fptr) != 1) {
-                        fprintf(stderr,"Image read failed\n");
-                        exit(-1);
-                    }
-                    if (gotindex) {
-                        putchar(colourindex[grey].r);
-                        putchar(colourindex[grey].g);
-                        putchar(colourindex[grey].b);
-                    } else {
-                        putchar(grey);
-                    }
-                    break;
-                case 24:
-                    if (fread(&b,sizeof(unsigned char),1,fptr) != 1) {
-                        fprintf(stderr,"Image read failed\n");
-                        exit(-1);
-                    }
-                    if (fread(&g,sizeof(unsigned char),1,fptr) != 1) {
-                        fprintf(stderr,"Image read failed\n");
-                        exit(-1);
-                    }
-                    if (fread(&r,sizeof(unsigned char),1,fptr) != 1) {
-                        fprintf(stderr,"Image read failed\n");
-                        exit(-1);
-                    }
-                    putchar(r);
-                    putchar(g);
-                    putchar(b);
-                    break;
+            if (fread(&b,sizeof(unsigned char),1,fptr) != 1) {
+                fprintf(stderr,"Image read failed\n");
+                exit(-1);
             }
-
+            if (fread(&g,sizeof(unsigned char),1,fptr) != 1) {
+                fprintf(stderr,"Image read failed\n");
+                exit(-1);
+            }
+            if (fread(&r,sizeof(unsigned char),1,fptr) != 1) {
+                fprintf(stderr,"Image read failed\n");
+                exit(-1);
+            }
+            fwrite(&b, 1, 1, out);
+            fwrite(&g, 1, 1, out);
+            fwrite(&r, 1, 1, out);
         } /* i */
     } /* j */
 
     fclose(fptr);
+    fclose(out);
 }
 
 /*
