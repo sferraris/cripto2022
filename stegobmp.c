@@ -63,8 +63,49 @@ void set_pass(const char* s, struct params * params) {
     params->pass = s;
 }
 
+const char *get_filename_ext(const char *filename) {
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot;
+}
+
 void embed_lsb1(struct params * params) { //TODO
-    readbmp(params->p);
+    HEADER header;
+    INFOHEADER infoheader;
+    const char * ext;
+
+    FILE * in;
+    FILE * fptr;
+    if ((in = fopen(params->in, "r")) == NULL) {
+        fprintf(stderr, "Unable to open in file \"%s\"\n", params->in);
+        exit(-1);
+    }
+    if ((fptr = fopen(params->p, "r")) == NULL) {
+        fprintf(stderr, "Unable to open BMP file \"%s\"\n", params->p);
+        exit(-1);
+    }
+    FILE * out = fopen(params->out, "wt");
+
+    ext = get_filename_ext(params->in);
+
+    readHeader(&header, &infoheader, fptr);
+
+    fwrite(&header.type, sizeof (unsigned short int), 1, out);
+    fwrite(&header.size, sizeof (unsigned int), 1, out);
+    fwrite(&header.reserved1, sizeof (unsigned short int), 1, out);
+    fwrite(&header.reserved2, sizeof (unsigned short int), 1, out);
+    fwrite(&header.offset, sizeof (unsigned int), 1, out);
+    fwrite(&infoheader, sizeof (INFOHEADER), 1, out);
+
+    fseek(fptr, header.offset, SEEK_SET);
+    fseek(out,header.offset,SEEK_SET);
+    //FIXME asumo que hasta aca todos los embed hacen lo mismo
+
+    set_bmp_lsb1(&infoheader, in, fptr, out, ext);
+
+    fclose(in);
+    fclose(fptr);
+    fclose(out);
 }
 
 void embed_lsb4(struct params * params) { //TODO
@@ -92,14 +133,25 @@ void embed_lsbi(struct params * params) { //TODO
 }
 
 void extract_lsb1(struct params * params) { //TODO
-    printf("p: %s\n", params->p);
-    printf("out: %s\n", params->out);
-    printf("steg: lsb1\n");
-    if (params->pass != NULL) {
-        printf("a: %s\n", params->a);
-        printf("m: %s\n", params->m);
-        printf("pass: %s\n", params->pass);
+    HEADER header;
+    INFOHEADER infoheader;
+
+    FILE * fptr;
+    if ((fptr = fopen(params->p, "r")) == NULL) {
+        fprintf(stderr, "Unable to open BMP file \"%s\"\n", params->p);
+        exit(-1);
     }
+    FILE * out = fopen(params->out, "wt");
+
+    readHeader(&header, &infoheader, fptr);
+
+    fseek(fptr, header.offset, SEEK_SET);
+    //FIXME asumo que hasta aca todos los extract hacen lo mismo
+
+    set_out_lsb1(&infoheader, fptr, out);
+
+    fclose(fptr);
+    fclose(out);
 }
 
 void extract_lsb4(struct params * params) { //TODO
@@ -178,4 +230,5 @@ int main (int argc, char const *argv[]) {
             break;
         }
     }
+    free(params);
 }

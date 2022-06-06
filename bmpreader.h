@@ -31,6 +31,8 @@ typedef struct {
     unsigned char r,g,b,junk;
 } COLOURINDEX;
 
-void readbmp(const char * p);
+void readHeader(HEADER * header, INFOHEADER * infoheader, FILE * fptr);
+void set_bmp_lsb1(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, const char * ext);
+void set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, FILE * out);
 
 #endif //CRIPTO2022_BMPREADER_H
