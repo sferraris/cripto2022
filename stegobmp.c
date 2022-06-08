@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "encryption.h"
+
 #include "bmpreader.h"
 
 struct params;
@@ -206,6 +209,9 @@ int main (int argc, char const *argv[]) {
         params->func = EXTRACT_STEG_TRANSITION;
         p = 0;
     }
+
+    int success = encrypt();
+    printf("Codigo de encripción: %d\n", success);
 
     params->p = argv[3+p];
     params->out = argv[5+p];
