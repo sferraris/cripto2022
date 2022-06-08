@@ -6,6 +6,10 @@
 
 int encrypt()
 {
-    printf("ANDA");
+
+    const EVP_CIPHER *cipher;
+    cipher = EVP_get_cipherbyname("aes-256-ofb");
+
+    printf("Cipher: %s", cipher);
     return 0;
 }
