@@ -72,37 +72,41 @@ const char *get_filename_ext(const char *filename) {
     return dot;
 }
 
+void prepare_embed(struct params * params, FILE ** in, FILE ** fptr, FILE ** out, const char ** ext, HEADER * header, INFOHEADER * infoheader) {
+    if ((*in = fopen(params->in, "r")) == NULL) {
+        fprintf(stderr, "Unable to open in file \"%s\"\n", params->in);
+        exit(-1);
+    }
+    if ((*fptr = fopen(params->p, "r")) == NULL) {
+        fprintf(stderr, "Unable to open BMP file \"%s\"\n", params->p);
+        exit(-1);
+    }
+    *out = fopen(params->out, "wt");
+
+    *ext = get_filename_ext(params->in);
+
+    readHeader(header, infoheader, *fptr);
+
+    fwrite(&header->type, sizeof (unsigned short int), 1, *out);
+    fwrite(&header->size, sizeof (unsigned int), 1, *out);
+    fwrite(&header->reserved1, sizeof (unsigned short int), 1, *out);
+    fwrite(&header->reserved2, sizeof (unsigned short int), 1, *out);
+    fwrite(&header->offset, sizeof (unsigned int), 1, *out);
+    fwrite(infoheader, sizeof (INFOHEADER), 1, *out);
+
+    fseek(*fptr, header->offset, SEEK_SET);
+    fseek(*out,header->offset,SEEK_SET);
+}
+
 void embed_lsb1(struct params * params) { //TODO
     HEADER header;
     INFOHEADER infoheader;
     const char * ext;
-
     FILE * in;
     FILE * fptr;
-    if ((in = fopen(params->in, "r")) == NULL) {
-        fprintf(stderr, "Unable to open in file \"%s\"\n", params->in);
-        exit(-1);
-    }
-    if ((fptr = fopen(params->p, "r")) == NULL) {
-        fprintf(stderr, "Unable to open BMP file \"%s\"\n", params->p);
-        exit(-1);
-    }
-    FILE * out = fopen(params->out, "wt");
+    FILE * out;
 
-    ext = get_filename_ext(params->in);
-
-    readHeader(&header, &infoheader, fptr);
-
-    fwrite(&header.type, sizeof (unsigned short int), 1, out);
-    fwrite(&header.size, sizeof (unsigned int), 1, out);
-    fwrite(&header.reserved1, sizeof (unsigned short int), 1, out);
-    fwrite(&header.reserved2, sizeof (unsigned short int), 1, out);
-    fwrite(&header.offset, sizeof (unsigned int), 1, out);
-    fwrite(&infoheader, sizeof (INFOHEADER), 1, out);
-
-    fseek(fptr, header.offset, SEEK_SET);
-    fseek(out,header.offset,SEEK_SET);
-    //FIXME asumo que hasta aca todos los embed hacen lo mismo
+    prepare_embed(params, &in, &fptr, &out, &ext, &header, &infoheader);
 
     set_bmp_lsb1(&infoheader, in, fptr, out, ext);
 
@@ -112,15 +116,20 @@ void embed_lsb1(struct params * params) { //TODO
 }
 
 void embed_lsb4(struct params * params) { //TODO
-    printf("in: %s\n", params->in);
-    printf("p: %s\n", params->p);
-    printf("out: %s\n", params->out);
-    printf("steg: lsb4\n");
-    if (params->pass != NULL) {
-        printf("a: %s\n", params->a);
-        printf("m: %s\n", params->m);
-        printf("pass: %s\n", params->pass);
-    }
+    HEADER header;
+    INFOHEADER infoheader;
+    const char * ext;
+    FILE * in;
+    FILE * fptr;
+    FILE * out;
+
+    prepare_embed(params, &in, &fptr, &out, &ext, &header, &infoheader);
+
+    set_bmp_lsb4(&infoheader, in, fptr, out, ext);
+
+    fclose(in);
+    fclose(fptr);
+    fclose(out);
 }
 
 void embed_lsbi(struct params * params) { //TODO
@@ -135,21 +144,25 @@ void embed_lsbi(struct params * params) { //TODO
     }
 }
 
-void extract_lsb1(struct params * params) { //TODO
-    HEADER header;
-    INFOHEADER infoheader;
-
-    FILE * fptr;
-    if ((fptr = fopen(params->p, "r")) == NULL) {
+void prepare_extract(struct params * params, FILE ** fptr, FILE ** out, HEADER * header, INFOHEADER * infoheader) {
+    if ((*fptr = fopen(params->p, "r")) == NULL) {
         fprintf(stderr, "Unable to open BMP file \"%s\"\n", params->p);
         exit(-1);
     }
-    FILE * out = fopen(params->out, "wt");
+    *out = fopen(params->out, "wt");
 
-    readHeader(&header, &infoheader, fptr);
+    readHeader(header, infoheader, *fptr);
 
-    fseek(fptr, header.offset, SEEK_SET);
-    //FIXME asumo que hasta aca todos los extract hacen lo mismo
+    fseek(*fptr, header->offset, SEEK_SET);
+}
+
+void extract_lsb1(struct params * params) { //TODO
+    HEADER header;
+    INFOHEADER infoheader;
+    FILE * fptr;
+    FILE * out;
+
+    prepare_extract(params, &fptr, &out, &header, &infoheader);
 
     set_out_lsb1(&infoheader, fptr, out);
 
@@ -158,14 +171,17 @@ void extract_lsb1(struct params * params) { //TODO
 }
 
 void extract_lsb4(struct params * params) { //TODO
-    printf("p: %s\n", params->p);
-    printf("out: %s\n", params->out);
-    printf("steg: lsb4\n");
-    if (params->pass != NULL) {
-        printf("a: %s\n", params->a);
-        printf("m: %s\n", params->m);
-        printf("pass: %s\n", params->pass);
-    }
+    HEADER header;
+    INFOHEADER infoheader;
+    FILE * fptr;
+    FILE * out;
+
+    prepare_extract(params, &fptr, &out, &header, &infoheader);
+
+    set_out_lsb4(&infoheader, fptr, out);
+
+    fclose(fptr);
+    fclose(out);
 }
 
 void extract_lsbi(struct params * params) { //TODO

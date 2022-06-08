@@ -52,6 +52,11 @@ void set_bmp_lsb1(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, c
     size = ftell(in);
     rewind(in);
 
+    if (8*(4+size+ext_length+1) > infoheader->imagesize) {
+        printf("El archivo bmp no puede albergar el archivo a ocultar completamente\n");
+        return;
+    }
+
     unsigned char * chars = (unsigned char *)&size;
 
     for (j=0;j<infoheader->height;j++) {
@@ -91,11 +96,7 @@ void set_bmp_lsb1(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, c
                             endflag = 1;
                         }
                     }
-                    if (bit == 0) {
-                        c = c & 0xFE;
-                    } else {
-                        c = c | 0x01;
-                    }
+                    c = ((c >> 1) << 1) | bit;
                 }
                 fwrite(&c, 1, 1, out);
             } /* k */
@@ -104,48 +105,147 @@ void set_bmp_lsb1(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, c
 }
 
 void set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, FILE * out) {
-    int i, j, k, p=3, b=7, inflag = 0, endflag = 0, size_c = 0, ep=0;
+    int i, j, k, p=3, b=7, size_c = 0, ep=0;
     int * size;
-    unsigned char c, t, bit;
+    unsigned char c, t=0, bit;
     unsigned char chars[4];
     char ext[10]; //TODO ver de dejarlo asi o malloquarlo para q sea extendible
 
-    for (j=0;j<infoheader->height && endflag != 1;j++) {
-        for (i=0;i<infoheader->width && endflag != 1;i++) {
+    for (j=0;j<infoheader->height;j++) {
+        for (i=0;i<infoheader->width;i++) {
+            for (k=0; k<3; k++) {
+                if (fread(&c, sizeof(unsigned char), 1, fptr) != 1) {
+                    fprintf(stderr, "Image read failed\n");
+                    exit(-1);
+                }
+
+                bit = c & 0x1;
+                t = t | bit;
+
+                if (b-- > 0) {
+                    t = t << 1;
+                } else {
+                    b = 7;
+                    if (p >= 0) {
+                        chars[p] = t;
+                        if (--p < 0) {
+                            size = (int *) chars;
+                            printf("Size: %d\n", *size);
+                        }
+                    } else if (size_c++ < *size) {
+                        fwrite(&t, 1, 1, out);
+                    } else {
+                        ext[ep++] = t;
+                        if (t == 0) {
+                            printf("File extension: %s\n", ext);
+                            return;
+                        }
+                    }
+                    t = 0;
+                }
+            } /* k */
+        } /* i */
+    } /* j */
+}
+
+void set_bmp_lsb4(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, const char * ext) {
+    int i, j, k, size, p=3, b=1, ep=0, inflag = 0, endflag = 0;
+    unsigned char c, t, bit;
+    int ext_length = strlen(ext);
+
+    fseek(in, 0L, SEEK_END);
+    size = ftell(in);
+    rewind(in);
+
+    if (2*(4+size+ext_length+1) > infoheader->imagesize) {
+        printf("El archivo bmp no puede albergar el archivo a ocultar completamente\n");
+        return;
+    }
+
+    unsigned char * chars = (unsigned char *)&size;
+
+    for (j=0;j<infoheader->height;j++) {
+        for (i=0;i<infoheader->width;i++) {
             for (k=0; k<3; k++) {
                 if (fread(&c, sizeof(unsigned char), 1, fptr) != 1) {
                     fprintf(stderr, "Image read failed\n");
                     exit(-1);
                 }
                 if (endflag != 1) {
-                    bit = c & 0x1;
-                    if (bit == 0) {
-                        t = t & 0xFE;
-                    } else {
-                        t = t | 0x01;
-                    }
-
-                    if (b-- > 0) {
-                        t = t << 1;
-                    } else {
-
-                        b = 7;
-                        if (p >= 0) {
-                            chars[p] = t;
-                            if (--p < 0) {
-                                size = (int *) chars;
-                                printf("Size: %d\n", *size);
-                            }
-                        } else if (size_c++ < *size) {
-                            fwrite(&t, 1, 1, out);
-                        } else {
-                            ext[ep++] = t;
-                            if (t == 0) {
-                                printf("File extension: %s\n", ext);
-                                endflag = 1;
+                    if (p >= 0) {
+                        bit = (chars[p] >> (b*4)) & 0xF;
+                        if (--b < 0) {
+                            b = 1;
+                            p--;
+                        }
+                    } else if (inflag != 1) {
+                        if (b == 1) {
+                            if (fread(&t, sizeof(unsigned char), 1, in) != 1) {
+                                inflag = 1;
+                                t = '.';
                             }
                         }
+                        bit = (t >> (b*4)) & 0xF;
+                        if (--b < 0) {
+                            b = 1;
+                        }
+                    } else if (ep < ext_length){
+                        bit = (ext[ep] >> (b*4)) & 0xF;
+                        if (--b < 0) {
+                            b = 1;
+                            ep++;
+                        }
+                    } else {
+                        bit = 0;
+                        if (--b < 0) {
+                            endflag = 1;
+                        }
                     }
+                    c = ((c >> 4) << 4) | bit;
+                }
+                fwrite(&c, 1, 1, out);
+            } /* k */
+        } /* i */
+    } /* j */
+}
+
+void set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, FILE * out) {
+    int i, j, k, p=3, b=1, size_c = 0, ep=0;
+    int * size;
+    unsigned char c, t=0, bit;
+    unsigned char chars[4];
+    char ext[10]; //TODO ver de dejarlo asi o malloquarlo para q sea extendible
+
+    for (j=0;j<infoheader->height;j++) {
+        for (i=0;i<infoheader->width;i++) {
+            for (k=0; k<3; k++) {
+                if (fread(&c, sizeof(unsigned char), 1, fptr) != 1) {
+                    fprintf(stderr, "Image read failed\n");
+                    exit(-1);
+                }
+                bit = c & 0xF;
+                t = t | bit;
+
+                if (b-- > 0) {
+                    t = t << 4;
+                } else {
+                    b = 1;
+                    if (p >= 0) {
+                        chars[p] = t;
+                        if (--p < 0) {
+                            size = (int *) chars;
+                            printf("Size: %d\n", *size);
+                        }
+                    } else if (size_c++ < *size) {
+                        fwrite(&t, 1, 1, out);
+                    } else {
+                        ext[ep++] = t;
+                        if (t == 0) {
+                            printf("File extension: %s\n", ext);
+                            return;
+                        }
+                    }
+                    t=0;
                 }
             } /* k */
         } /* i */
@@ -158,9 +258,9 @@ void set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, FILE * out) {
 int ReadUShort(FILE *fptr,short unsigned *n,int swap)
 {
     unsigned char *cptr,tmp;
-
-    if (fread(n,2,1,fptr) != 1)
-        return(FALSE);
+    if (fread(n,2,1,fptr) != 1) {
+        return (FALSE);
+    }
     if (swap) {
         cptr = (unsigned char *)n;
         tmp = cptr[0];
