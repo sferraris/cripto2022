@@ -226,9 +226,6 @@ int main (int argc, char const *argv[]) {
         p = 0;
     }
 
-    int success = encrypt();
-    printf("Codigo de encripción: %d\n", success);
-
     params->p = argv[3+p];
     params->out = argv[5+p];
     params->steg = argv[7+p];
@@ -252,5 +249,6 @@ int main (int argc, char const *argv[]) {
             break;
         }
     }
+    
     free(params);
 }
