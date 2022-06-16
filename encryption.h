@@ -14,6 +14,7 @@
 #include <openssl/aes.h>
 
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,5 +35,5 @@
  */
 int encrypt_text(const char * encryption, const char * block_cipher, const char * file_name, unsigned char encrypted_text[MAX_ENCR_LENGTH]);
 
-
+int decrypt_text(const char * encryption, const char * block_cipher, unsigned char text_to_decrypt[MAX_ENCR_LENGTH], int encrypted_size, unsigned char * decrypted_text, char* extension);
 #endif //CRIPTO2022_ENCRYPTION_H
