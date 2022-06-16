@@ -170,6 +170,7 @@ void extract_lsb1(struct params * params) { //TODO
 }
 
 void extract_lsb4(struct params * params) { //TODO
+
     HEADER header;
     INFOHEADER infoheader;
     FILE * fptr;
@@ -267,15 +268,19 @@ int main (int argc, char const *argv[]) {
          }
      }
 
+     printf("START\n");
+
+     printf("Pass: %s\n", params->pass);
+
      unsigned char encrypted_text[MAX_ENCR_LENGTH];
-     int encryption_size = encrypt_text(params->a, params->m, params->in, encrypted_text);
+     int encryption_size = encrypt_text(params->a, params->m, params->in, encrypted_text, params->pass);
      printf("Encryption size: %d\n", encryption_size);
 
      printf("Encriptado en hexa %s\n", encrypted_text);
 
      unsigned char decrypted_text[MAX_ENCR_LENGTH];
      char extension[10];
-     int text_size = decrypt_text(params->a, params->m, encrypted_text, encryption_size, decrypted_text, extension);
+     int text_size = decrypt_text(params->a, params->m, encrypted_text, encryption_size, decrypted_text, extension, params->pass);
 
      printf("Text Size afuera: %d\n", text_size);
 

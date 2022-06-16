@@ -5,8 +5,8 @@
 #include "encryption.h"
 
 const EVP_CIPHER * get_cipher(const char * encryption, const char * block_cipher);
-int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out_buffer[MAX_ENCR_LENGTH], int in_length);
-int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned char *out_buffer, int in_length);
+int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out_buffer[MAX_ENCR_LENGTH], int in_length, const char * pass);
+int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned char *out_buffer, int in_length, const char * pass);
 unsigned char * parse_in_file(const char * file_name, unsigned int *size);
 
 /**
@@ -14,7 +14,7 @@ unsigned char * parse_in_file(const char * file_name, unsigned int *size);
  * @param in la entrada que se quiere cifrar
  * @return retorna FAILURE (-1) si falla, retorna la longitud de la encripción si no falla
  */
-int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out_buffer[MAX_ENCR_LENGTH], int in_length)
+int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out_buffer[MAX_ENCR_LENGTH], int in_length, const char * pass)
 {
 
     OpenSSL_add_all_algorithms();
@@ -34,8 +34,6 @@ int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out
         exit(1);
     }
 
-    const char * pass = "pass";
-
     if(!EVP_BytesToKey(cipher, dgst, salt,(unsigned char *) pass,strlen(pass), 1, key, iv))
     {
         fprintf(stderr, "EVP_BytesToKey failed\n");
@@ -48,8 +46,6 @@ int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out
     //EVP_CIPHER_CTX_init(ctx);
 
     EVP_EncryptInit_ex(ctx, cipher, NULL, key, iv);
-
-    unsigned char out_buffer2[MAX_ENCR_LENGTH];
 
     if (!EVP_EncryptUpdate(ctx, out_buffer, &out_length, in, in_length)) {
         EVP_CIPHER_CTX_cleanup(ctx);
@@ -68,7 +64,7 @@ int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out
     return out_length + temp_length;
 }
 
-int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned char *out_buffer, int in_length)
+int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned char *out_buffer, int in_length, const char * pass)
 {
 
     OpenSSL_add_all_algorithms();
@@ -87,8 +83,6 @@ int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned 
         fprintf(stderr, "no dgst\n");
         exit(1);
     }
-
-    const char * pass = "pass";
 
     if(!EVP_BytesToKey(cipher, dgst, salt,(unsigned char *) pass,strlen(pass), 1, key, iv))
     {
@@ -169,7 +163,7 @@ unsigned char * parse_in_file(const char * file_name, unsigned int *size){
     return out_text;
 }
 
-int encrypt_text(const char * encryption, const char * block_cipher, const char * file_name, unsigned char encrypted_text[MAX_ENCR_LENGTH]){
+int encrypt_text(const char * encryption, const char * block_cipher, const char * file_name, unsigned char encrypted_text[MAX_ENCR_LENGTH], const char * pass){
 
     unsigned int text_to_encrypt_size;
 
@@ -181,12 +175,14 @@ int encrypt_text(const char * encryption, const char * block_cipher, const char 
 
     printf("TEXTO PLANO: %s\n", text_to_encrypt + 4);
 
+    printf("Pass: %s, length: %d\n", pass, strlen(pass));
+
     const EVP_CIPHER * cipher= get_cipher(encryption, block_cipher);
 
-    return encrypt(cipher, text_to_encrypt, encrypted_text, text_to_encrypt_size);
+    return encrypt(cipher, text_to_encrypt, encrypted_text, text_to_encrypt_size, pass);
 }
 
-int decrypt_text(const char * encryption, const char * block_cipher, unsigned char text_to_decrypt[MAX_ENCR_LENGTH], int encrypted_size, unsigned char * decrypted_text, char* extension){
+int decrypt_text(const char * encryption, const char * block_cipher, unsigned char text_to_decrypt[MAX_ENCR_LENGTH], int encrypted_size, unsigned char * decrypted_text, char* extension, const char * pass){
 
     printf("DECRYPT ENTER\n");
     //TODO text
@@ -204,9 +200,11 @@ int decrypt_text(const char * encryption, const char * block_cipher, unsigned ch
 
     printf("Encription: %s, cipher: %s\n", encryption, block_cipher);
 
+    printf("Pass: %s, length: %d\n", pass, strlen(pass));
+
     unsigned char * info_from_decryption = malloc(MAX_ENCR_LENGTH);
 
-    unsigned int decrypted_text_size = decrypt(cipher, text_to_decrypt, info_from_decryption, encrypted_size);
+    unsigned int decrypted_text_size = decrypt(cipher, text_to_decrypt, info_from_decryption, encrypted_size, pass);
 
     printf("Se tendria que cumplir creo(? --> %d == %d\n", decrypted_text_size, encrypted_size);
 
