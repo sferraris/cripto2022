@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "encryption.h"
-
 #include "bmpreader.h"
 
 struct params;
@@ -176,6 +175,7 @@ void extract_lsb1(struct params * params) { //TODO
 }
 
 void extract_lsb4(struct params * params) { //TODO
+
     HEADER header;
     INFOHEADER infoheader;
     FILE * fptr;
@@ -219,43 +219,79 @@ static const struct parser_cripto_transition CRIPTO_TRANSITION [] = {
 };
 
 int main (int argc, char const *argv[]) {
-    struct params * params = malloc(sizeof (struct params));
-    int p;
 
-    if (strcmp(argv[1], "-embed") == 0) {
-        params->in = argv[3];
-        params->func = EMBED_STEG_TRANSITION;
-        p = 2;
-    } else {
-        params->func = EXTRACT_STEG_TRANSITION;
-        p = 0;
+    //Para que funcione DES
+
+    /*OSSL_PROVIDER * legacy;
+    OSSL_PROVIDER * _default;
+
+    legacy = OSSL_PROVIDER_load(NULL, "legacy");
+    if (legacy == NULL) {
+        printf("Failed to load Legacy provider\n");
+        exit(EXIT_FAILURE);
     }
+    _default = OSSL_PROVIDER_load(NULL, "default");
+    if (_default == NULL) {
+        printf("Failed to load Default provider\n");
+        OSSL_PROVIDER_unload(legacy);
+        exit(EXIT_FAILURE);
+    } */
 
-    int success = encrypt();
-    printf("Codigo de encripción: %d\n", success);
+     struct params * params = malloc(sizeof (struct params));
+     int p;
 
-    params->p = argv[3+p];
-    params->out = argv[5+p];
-    params->steg = argv[7+p];
+     if (strcmp(argv[1], "-embed") == 0) {
+         params->in = argv[3];
+         params->func = EMBED_STEG_TRANSITION;
+         p = 2;
+     } else {
+         params->func = EXTRACT_STEG_TRANSITION;
+         p = 0;
+     }
 
-    if (argc == 8+p) {
-        params->pass = NULL;
-    } else {
-        for (int i=0; i < 3; i++) {
-            if (CRIPTO_TRANSITION[i].when(argv[8+p])) {
-                CRIPTO_TRANSITION[i].set(argv[9+p], params);
-                p+=2;
-            } else {
-                CRIPTO_TRANSITION[i].set(CRIPTO_TRANSITION[i].def, params);
-            }
-        }
-    }
+     params->p = argv[3+p];
+     params->out = argv[5+p];
+     params->steg = argv[7+p];
 
-    for (int i=0; i < 3; i++) {
-        if (params->func[i].when(params->steg)) {
-            params->func[i].act(params);
-            break;
-        }
-    }
-    free(params);
+     if (argc == 8+p) {
+         params->pass = NULL;
+     } else {
+         for (int i=0; i < 3; i++) {
+             if (CRIPTO_TRANSITION[i].when(argv[8+p])) {
+                 CRIPTO_TRANSITION[i].set(argv[9+p], params);
+                 p+=2;
+             } else {
+                 CRIPTO_TRANSITION[i].set(CRIPTO_TRANSITION[i].def, params);
+             }
+         }
+     }
+
+     for (int i=0; i < 3; i++) {
+         if (params->func[i].when(params->steg)) {
+             params->func[i].act(params);
+             break;
+         }
+     }
+
+     printf("START\n");
+
+     printf("Pass: %s\n", params->pass);
+
+     unsigned char encrypted_text[MAX_ENCR_LENGTH];
+     int encryption_size = encrypt_text(params->a, params->m, params->in, encrypted_text, params->pass);
+     printf("Encryption size: %d\n", encryption_size);
+
+     printf("Encriptado en hexa %s\n", encrypted_text);
+
+     unsigned char decrypted_text[MAX_ENCR_LENGTH];
+     char extension[10];
+     int text_size = decrypt_text(params->a, params->m, encrypted_text, encryption_size, decrypted_text, extension, params->pass);
+
+     printf("Text Size afuera: %d\n", text_size);
+
+     free(params);
+
+    /*OSSL_PROVIDER_unload(legacy);
+    OSSL_PROVIDER_unload(_default);*/
+    return 0;
 }
