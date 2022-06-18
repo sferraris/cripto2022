@@ -133,15 +133,20 @@ void embed_lsb4(struct params * params) { //TODO
 }
 
 void embed_lsbi(struct params * params) { //TODO
-    printf("in: %s\n", params->in);
-    printf("p: %s\n", params->p);
-    printf("out: %s\n", params->out);
-    printf("steg: lsbi\n");
-    if (params->pass != NULL) {
-        printf("a: %s\n", params->a);
-        printf("m: %s\n", params->m);
-        printf("pass: %s\n", params->pass);
-    }
+    HEADER header;
+    INFOHEADER infoheader;
+    const char * ext;
+    FILE * in;
+    FILE * fptr;
+    FILE * out;
+
+    prepare_embed(params, &in, &fptr, &out, &ext, &header, &infoheader);
+
+    set_bmp_lsbi(&infoheader, in, fptr, out, ext, &header);
+
+    fclose(in);
+    fclose(fptr);
+    fclose(out);
 }
 
 void prepare_extract(struct params * params, FILE ** fptr, FILE ** out, HEADER * header, INFOHEADER * infoheader) {

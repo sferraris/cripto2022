@@ -42,6 +42,40 @@ void readHeader(HEADER * header, INFOHEADER * infoheader, FILE * fptr) {
     fprintf(stdout, "Number of required colours is %d\n", infoheader->importantcolours);
 }
 
+unsigned char get_bit(int * endflag, int * p, unsigned char * chars, int * b, int * inflag, FILE * in, int * ep, int ext_length, const char * ext) {
+    unsigned char t, bit;
+    if (*p >= 0) {
+        bit = (chars[*p] >> *b) & 0x1;
+        if (--(*b) < 0) {
+            *b = 7;
+            (*p)--;
+        }
+    } else if (*inflag != 1) {
+        if (*b == 7) {
+            if (fread(&t, sizeof(unsigned char), 1, in) != 1) {
+                *inflag = 1;
+                t = '.';
+            }
+        }
+        bit = (t >> *b) & 0x1;
+        if (--(*b) < 0) {
+            *b = 7;
+        }
+    } else if (*ep < ext_length){
+        bit = (ext[*ep] >> *b) & 0x1;
+        if (--(*b) < 0) {
+            *b = 7;
+            (*ep)++;
+        }
+    } else {
+        bit = 0;
+        if (--(*b) < 0) {
+            *endflag = 1;
+        }
+    }
+    return bit;
+}
+
 /* Read the image */
 void set_bmp_lsb1(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, const char * ext) {
     int i, j, k, size, p=3, b=7, ep=0, inflag = 0, endflag = 0;
@@ -252,6 +286,84 @@ void set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, FILE * out) {
     } /* j */
 }
 
+void set_bmp_lsbi(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, const char * ext, HEADER * header) {
+    int i, j, k, size, p=3, b=7, ep=0, inflag = 0, endflag = 0, pp=0;
+    unsigned char c, t, bit, original_bit, stbits;
+    int ext_length = strlen(ext);
+    int changed[4] = {0, 0, 0, 0};
+    int not_changed[4] = {0, 0, 0, 0};
+    int pattern[4];
+
+    fseek(in, 0L, SEEK_END);
+    size = ftell(in);
+    rewind(in);
+
+    if (8*(4+size+ext_length+1)+4 > infoheader->imagesize) {
+        printf("El archivo bmp no puede albergar el archivo a ocultar completamente\n");
+        return;
+    }
+
+    unsigned char * chars = (unsigned char *)&size;
+
+    for (j=0;j<infoheader->height;j++) {
+        for (i=0;i<infoheader->width;i++) {
+            for (k=0; k<3; k++) {
+                printf("entro\n");
+                if (fread(&c, sizeof(unsigned char), 1, fptr) != 1) {
+                    fprintf(stderr, "Image read failed\n");
+                    exit(-1);
+                }
+                bit = get_bit(&endflag, &p, chars, &b, &inflag, in, &ep, ext_length, ext);
+                stbits = (c >> 1) & 0x3;
+                original_bit = c & 0x1;
+                if (original_bit == bit) {
+                    not_changed[stbits]++;
+                    printf("nc:%d\n", not_changed[stbits]);
+                } else {
+                    changed[stbits]++;
+                    printf("c:%d\n", changed[stbits]);
+                }
+                if (endflag != 0) {
+                    goto snd_part;
+                }
+            } /* k */
+        } /* i */
+    } /* j */
+    snd_part:
+    for (k=0; k<4; k++) {
+        pattern[k] = (changed[k] > not_changed[k]) ? 1 : 0;
+    }
+
+    fseek(fptr, header->offset, SEEK_SET);
+    rewind(in);
+    endflag = inflag = ep = 0;
+    p = 3;
+    b = 7;
+
+    for (j=0;j<infoheader->height;j++) {
+        for (i=0;i<infoheader->width;i++) {
+            for (k=0; k<3; k++) {
+                if (fread(&c, sizeof(unsigned char), 1, fptr) != 1) {
+                    fprintf(stderr, "Image read failed\n");
+                    exit(-1);
+                }
+                if (endflag != 1) {
+                    if (pp < 4) {
+                        bit = pattern[pp++];
+                    } else {
+                        bit = get_bit(&endflag, &p, chars, &b, &inflag, in, &ep, ext_length, ext);
+                        stbits = (c >> 1) & 0x3;
+                        if (pattern[stbits] == 1) {
+                            bit = (~bit) & 0x1;
+                        }
+                    }
+                    c = ((c >> 1) << 1) | bit;
+                }
+                fwrite(&c, 1, 1, out);
+            } /* k */
+        } /* i */
+    } /* j */
+}
 /*
    Read a possibly byte swapped unsigned short integer
 */

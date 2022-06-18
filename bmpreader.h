@@ -36,5 +36,6 @@ void set_bmp_lsb1(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, c
 void set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, FILE * out);
 void set_bmp_lsb4(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, const char * ext);
 void set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, FILE * out);
+void set_bmp_lsbi(INFOHEADER * infoheader, FILE * in, FILE * fptr, FILE * out, const char * ext, HEADER * header);
 
 #endif //CRIPTO2022_BMPREADER_H
