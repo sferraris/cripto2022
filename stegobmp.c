@@ -65,24 +65,18 @@ void set_pass(const char* s, struct params * params) {
     params->pass = s;
 }
 
-const char *get_filename_ext(const char *filename) {
-    const char *dot = strrchr(filename, '.');
-    if(!dot || dot == filename) return "";
-    return dot;
-}
+unsigned char * prepare_embed(struct params * params, FILE ** fptr, FILE ** out, const char ** ext, HEADER * header, INFOHEADER * infoheader, unsigned int * final_size) {
+    unsigned int before_size;
+    unsigned char * before_text;
 
-void prepare_embed(struct params * params, FILE ** in, FILE ** fptr, FILE ** out, const char ** ext, HEADER * header, INFOHEADER * infoheader) {
-    if ((*in = fopen(params->in, "r")) == NULL) {
-        fprintf(stderr, "Unable to open in file \"%s\"\n", params->in);
-        exit(-1);
-    }
     if ((*fptr = fopen(params->p, "r")) == NULL) {
         fprintf(stderr, "Unable to open BMP file \"%s\"\n", params->p);
         exit(-1);
     }
     *out = fopen(params->out, "wt");
 
-    *ext = get_filename_ext(params->in);
+    before_text = parse_in_file(params->in, &before_size);
+    *final_size = before_size;
 
     readHeader(header, infoheader, *fptr);
 
@@ -95,21 +89,40 @@ void prepare_embed(struct params * params, FILE ** in, FILE ** fptr, FILE ** out
 
     fseek(*fptr, header->offset, SEEK_SET);
     fseek(*out,header->offset,SEEK_SET);
+
+    if (params->pass != NULL) {
+        unsigned char encrypted_text[MAX_ENCR_LENGTH];
+        int encryption_size = encrypt_text(params->a, params->m, encrypted_text, params->pass, before_text, before_size);
+        unsigned char * final_text = malloc(encryption_size + 4);
+        for(int i = 3; i >= 0; i--){
+            char byte = (char)((encryption_size >> i*8) & 0xFF);
+            final_text[3-i] = byte;
+        }
+        *final_size = encryption_size+4;
+        memcpy(final_text+4, encrypted_text, encryption_size);
+        return final_text;
+    }
+    return before_text;
 }
 
 void embed_lsb1(struct params * params) { //TODO
     HEADER header;
     INFOHEADER infoheader;
     const char * ext;
-    FILE * in;
     FILE * fptr;
     FILE * out;
+    unsigned int size;
 
-    prepare_embed(params, &in, &fptr, &out, &ext, &header, &infoheader);
+    unsigned char * in_text = prepare_embed(params, &fptr, &out, &ext, &header, &infoheader, &size);
 
-    set_bmp_lsb1(&infoheader, in, fptr, out, ext);
+    if (8*size > infoheader.imagesize) {
+        printf("El archivo bmp no puede albergar el archivo a ocultar completamente\n");
+        return;
+    }
 
-    fclose(in);
+    set_bmp_lsb1(&infoheader, fptr, out, in_text, size);
+
+    free(in_text);
     fclose(fptr);
     fclose(out);
 }
@@ -118,15 +131,20 @@ void embed_lsb4(struct params * params) { //TODO
     HEADER header;
     INFOHEADER infoheader;
     const char * ext;
-    FILE * in;
     FILE * fptr;
     FILE * out;
+    unsigned int size;
 
-    prepare_embed(params, &in, &fptr, &out, &ext, &header, &infoheader);
+    unsigned char * in_text = prepare_embed(params, &fptr, &out, &ext, &header, &infoheader, &size);
 
-    set_bmp_lsb4(&infoheader, in, fptr, out, ext);
+    if (2*size > infoheader.imagesize) {
+        printf("El archivo bmp no puede albergar el archivo a ocultar completamente\n");
+        return;
+    }
 
-    fclose(in);
+    set_bmp_lsb4(&infoheader, fptr, out, in_text, size);
+
+    free(in_text);
     fclose(fptr);
     fclose(out);
 }
@@ -135,25 +153,29 @@ void embed_lsbi(struct params * params) { //TODO
     HEADER header;
     INFOHEADER infoheader;
     const char * ext;
-    FILE * in;
     FILE * fptr;
     FILE * out;
+    unsigned int size;
 
-    prepare_embed(params, &in, &fptr, &out, &ext, &header, &infoheader);
+    unsigned char * in_text = prepare_embed(params, &fptr, &out, &ext, &header, &infoheader, &size);
 
-    set_bmp_lsbi(&infoheader, in, fptr, out, ext, &header);
+    if (8*size+4 > infoheader.imagesize) {
+        printf("El archivo bmp no puede albergar el archivo a ocultar completamente\n");
+        return;
+    }
 
-    fclose(in);
+    set_bmp_lsbi(&infoheader, fptr, out, in_text, size, &header);
+
+    free(in_text);
     fclose(fptr);
     fclose(out);
 }
 
-void prepare_extract(struct params * params, FILE ** fptr, FILE ** out, HEADER * header, INFOHEADER * infoheader) {
+void prepare_extract(struct params * params, FILE ** fptr, HEADER * header, INFOHEADER * infoheader) {
     if ((*fptr = fopen(params->p, "r")) == NULL) {
         fprintf(stderr, "Unable to open BMP file \"%s\"\n", params->p);
         exit(-1);
     }
-    *out = fopen(params->out, "wt");
 
     readHeader(header, infoheader, *fptr);
 
@@ -165,39 +187,91 @@ void extract_lsb1(struct params * params) { //TODO
     INFOHEADER infoheader;
     FILE * fptr;
     FILE * out;
+    unsigned char fptr_text[MAX_ENCR_LENGTH]; //TODO ver bien el tamaño
+    unsigned char out_text[MAX_ENCR_LENGTH];
+    char extension[10];
+    int size;
 
-    prepare_extract(params, &fptr, &out, &header, &infoheader);
+    prepare_extract(params, &fptr, &header, &infoheader);
 
-    set_out_lsb1(&infoheader, fptr, out);
+    set_out_lsb1(&infoheader, fptr, fptr_text, &size);
+
+    if (params->pass != NULL) {
+        int text_size = decrypt_text(params->a, params->m, fptr_text, size, out_text, extension, params->pass);
+        size = text_size;
+    } else {
+        memcpy(out_text, fptr_text, size);
+        memcpy(extension, fptr_text + size, 10);
+    }
+    strcat(params->out, extension);
+    out = fopen(params->out, "wt");
+
+    fwrite(out_text, size, 1, out);
 
     fclose(fptr);
     fclose(out);
 }
 
 void extract_lsb4(struct params * params) { //TODO
-
     HEADER header;
     INFOHEADER infoheader;
     FILE * fptr;
     FILE * out;
+    unsigned char fptr_text[MAX_ENCR_LENGTH]; //TODO ver bien el tamaño
+    unsigned char out_text[MAX_ENCR_LENGTH];
+    char extension[10];
+    int size;
 
-    prepare_extract(params, &fptr, &out, &header, &infoheader);
+    prepare_extract(params, &fptr, &header, &infoheader);
 
-    set_out_lsb4(&infoheader, fptr, out);
+    set_out_lsb4(&infoheader, fptr, fptr_text, &size);
+
+    if (params->pass != NULL) {
+        int text_size = decrypt_text(params->a, params->m, fptr_text, size, out_text, extension, params->pass);
+        size = text_size;
+    } else {
+        memcpy(out_text, fptr_text, size);
+        memcpy(extension, fptr_text + size, 10);
+    }
+
+    strcat(params->out, extension);
+    out = fopen(params->out, "wt");
+
+    fwrite(out_text, size, 1, out);
 
     fclose(fptr);
     fclose(out);
 }
 
 void extract_lsbi(struct params * params) { //TODO
-    printf("p: %s\n", params->p);
-    printf("out: %s\n", params->out);
-    printf("steg: lsbi\n");
+    HEADER header;
+    INFOHEADER infoheader;
+    FILE * fptr;
+    FILE * out;
+    unsigned char fptr_text[MAX_ENCR_LENGTH]; //TODO ver bien el tamaño
+    unsigned char out_text[MAX_ENCR_LENGTH];
+    char extension[10];
+    int size;
+
+    prepare_extract(params, &fptr, &header, &infoheader);
+
+    set_out_lsbi(&infoheader, fptr, fptr_text, &size);
+
     if (params->pass != NULL) {
-        printf("a: %s\n", params->a);
-        printf("m: %s\n", params->m);
-        printf("pass: %s\n", params->pass);
+        int text_size = decrypt_text(params->a, params->m, fptr_text, size, out_text, extension, params->pass);
+        size = text_size;
+    } else {
+        memcpy(out_text, fptr_text, size);
+        memcpy(extension, fptr_text + size, 10);
     }
+
+    strcat(params->out, extension);
+    out = fopen(params->out, "wt");
+
+    fwrite(out_text, size, 1, out);
+
+    fclose(fptr);
+    fclose(out);
 }
 
 static const struct parser_steg_transition EMBED_STEG_TRANSITION [] = {
@@ -273,21 +347,21 @@ int main (int argc, char const *argv[]) {
          }
      }
 
-     printf("START\n");
+     /*printf("START\n");
 
      printf("Pass: %s\n", params->pass);
 
      unsigned char encrypted_text[MAX_ENCR_LENGTH];
-     int encryption_size = encrypt_text(params->a, params->m, params->in, encrypted_text, params->pass);
-     printf("Encryption size: %d\n", encryption_size);
+     //int encryption_size = encrypt_text(params->a, params->m, params->in, encrypted_text, params->pass);
+     //printf("Encryption size: %d\n", encryption_size);
 
      printf("Encriptado en hexa %s\n", encrypted_text);
 
      unsigned char decrypted_text[MAX_ENCR_LENGTH];
      char extension[10];
-     int text_size = decrypt_text(params->a, params->m, encrypted_text, encryption_size, decrypted_text, extension, params->pass);
+     //int text_size = decrypt_text(params->a, params->m, encrypted_text, encryption_size, decrypted_text, extension, params->pass);
 
-     printf("Text Size afuera: %d\n", text_size);
+     //printf("Text Size afuera: %d\n", text_size);*/
 
      free(params);
 

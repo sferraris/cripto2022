@@ -131,11 +131,9 @@ unsigned char * parse_in_file(const char * file_name, unsigned int *size){
     int ext_size = strlen(extension) + 1;
 
     printf("File Name: %s, Extension: %s, size: %d \n", file_name, extension, ext_size);
-
     file = fopen(file_name, "rb+");
     if ( file == NULL)
         return FAILURE;
-
     fseek(file, 0L, SEEK_END);
     file_size = ftell(file);
     rewind(file);
@@ -151,23 +149,15 @@ unsigned char * parse_in_file(const char * file_name, unsigned int *size){
         char byte = (char)((file_size >> i*8) & 0xFF);
         out_text[3-i] = byte;
     }
-
     fread(out_text + 4, sizeof (unsigned char), file_size, file);
-
     fclose(file);
-
     memcpy(out_text + 4 + file_size, extension, ext_size);
-
-    memcpy(out_text + 4 + file_size + ext_size, extension, '\0');
+    //memcpy(out_text + 4 + file_size + ext_size, (const void*)'\0', 1);
 
     return out_text;
 }
 
-int encrypt_text(const char * encryption, const char * block_cipher, const char * file_name, unsigned char encrypted_text[MAX_ENCR_LENGTH], const char * pass){
-
-    unsigned int text_to_encrypt_size;
-
-    unsigned char * text_to_encrypt = parse_in_file(file_name, &text_to_encrypt_size);
+int encrypt_text(const char * encryption, const char * block_cipher, unsigned char encrypted_text[MAX_ENCR_LENGTH], const char * pass, unsigned char * text_to_encrypt, unsigned int text_to_encrypt_size){
 
     printf("SIZE TO ENCRYPT: %d\n", text_to_encrypt_size);
 
@@ -217,7 +207,8 @@ int decrypt_text(const char * encryption, const char * block_cipher, unsigned ch
 
     memcpy(decrypted_text, info_from_decryption + 4, text_size);
 
-    extension = strrchr((const char *)info_from_decryption + 4 + text_size, '.');
+    char * aux_ext = strrchr((const char *)info_from_decryption + 4 + text_size, '.');
+    strcpy(extension, aux_ext);
 
     printf("Decrypted Text: %s\n", decrypted_text);
 

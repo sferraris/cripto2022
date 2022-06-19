@@ -55,3 +55,9 @@ modules.xml
 .idea/*
 
 stegobmp
+
+files
+
+CMakeLists.txt
+
+.DS_Store
