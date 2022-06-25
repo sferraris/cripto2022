@@ -42,7 +42,7 @@ algoritmo de esteganografiado: LSB de 1bit, LSB de 4 bits, LSB Enhanced
 
 ➢ -pass password (password de encripcion)
 
-#### IMPORTANTE: LOS PARÁMETROS OPCIONALES DEBEN ESTAR EN EL ORDEN ESCRITO
+#### IMPORTANTE: TODOS LOS PARÁMETROS DEBEN ESTAR EN EL ORDEN ESCRITO
 
 #### Ejemplo de ejecución
 ./stegobmp –extract –p “imagenmas1 .bmp” -out “mensaje1” –steg LSBI –a des –m cbc -pass
