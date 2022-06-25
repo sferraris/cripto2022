@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <openssl/provider.h>
 
 #include "encryption.h"
 #include "bmpreader.h"
@@ -331,23 +330,6 @@ static const struct parser_cripto_transition CRIPTO_TRANSITION [] = {
 
 int main (int argc, char const *argv[]) {
 
-    //Para que funcione DES
-
-    /*OSSL_PROVIDER * legacy;
-    OSSL_PROVIDER * _default;
-
-    legacy = OSSL_PROVIDER_load(NULL, "legacy");
-    if (legacy == NULL) {
-        printf("Failed to load Legacy provider\n");
-        exit(EXIT_FAILURE);
-    }
-    _default = OSSL_PROVIDER_load(NULL, "default");
-    if (_default == NULL) {
-        printf("Failed to load Default provider\n");
-        OSSL_PROVIDER_unload(legacy);
-        exit(EXIT_FAILURE);
-    }*/
-
      struct params * params = malloc(sizeof (struct params));
      int p;
 
@@ -385,8 +367,5 @@ int main (int argc, char const *argv[]) {
      }
 
      free(params);
-
-    /*OSSL_PROVIDER_unload(legacy);
-    OSSL_PROVIDER_unload(_default);*/
     return 0;
 }
