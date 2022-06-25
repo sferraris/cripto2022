@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/provider.h>
+//#include <openssl/provider.h>
 
 #include "encryption.h"
 #include "bmpreader.h"
@@ -22,7 +22,7 @@ struct parser_cripto_transition {
 struct params {
     const char* in;
     const char* p;
-    const char* out;
+    char* out;
     const char* pass;
     const char* a;
     const char* m;
@@ -97,8 +97,8 @@ unsigned char * prepare_embed(struct params * params, FILE ** fptr, FILE ** out,
     fseek(*out,header->offset,SEEK_SET);
 
     if (params->pass != NULL) {
-        unsigned char encrypted_text[MAX_ENCR_LENGTH];
-        int encryption_size = encrypt_text(params->a, params->m, encrypted_text, params->pass, before_text, before_size);
+        unsigned char * encrypted_text;
+        int encryption_size = encrypt_text(params->a, params->m, &encrypted_text, params->pass, before_text, before_size);
         free(before_text);
 
         unsigned char * final_text = malloc(encryption_size + 4);
@@ -108,6 +108,7 @@ unsigned char * prepare_embed(struct params * params, FILE ** fptr, FILE ** out,
         }
         *final_size = encryption_size+4;
         memcpy(final_text+4, encrypted_text, encryption_size);
+        free(encrypted_text);
         return final_text;
     }
     return before_text;
@@ -332,7 +333,7 @@ int main (int argc, char const *argv[]) {
 
     //Para que funcione DES
 
-    OSSL_PROVIDER * legacy;
+    /*OSSL_PROVIDER * legacy;
     OSSL_PROVIDER * _default;
 
     legacy = OSSL_PROVIDER_load(NULL, "legacy");
@@ -345,7 +346,7 @@ int main (int argc, char const *argv[]) {
         printf("Failed to load Default provider\n");
         OSSL_PROVIDER_unload(legacy);
         exit(EXIT_FAILURE);
-    }
+    }*/
 
      struct params * params = malloc(sizeof (struct params));
      int p;
@@ -360,7 +361,7 @@ int main (int argc, char const *argv[]) {
      }
 
      params->p = argv[3+p];
-     params->out = argv[5+p];
+     params->out = (char * ) argv[5+p];
      params->steg = argv[7+p];
 
      if (argc == 8+p) {
@@ -385,7 +386,7 @@ int main (int argc, char const *argv[]) {
 
      free(params);
 
-    OSSL_PROVIDER_unload(legacy);
-    OSSL_PROVIDER_unload(_default);
+    /*OSSL_PROVIDER_unload(legacy);
+    OSSL_PROVIDER_unload(_default);*/
     return 0;
 }

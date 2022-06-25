@@ -19,21 +19,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_ENCR_LENGTH 150000
 #define FAILURE -1
+#define DES_BLOCK 8
+#define AES_128_BLOCK 16
+#define AES_192_BLOCK 24
+#define AES_256_BLOCK 32
 
-/**
- *
- * @param encryption params->a
- * @param block_cipher params->m
- * @param file_name params->in
- * @param encrypted_text unsigned char encrypted_text[MAX_ENCR_LENGTH];
- * @return retorna el tamaño de la encripción
- * Ejemplo de llamada:
- * unsigned char encrypted_text[MAX_ENCR_LENGTH];
- * int encryption_size = encrypt_text(params->a, params->m, params->in, encrypted_text);
- */
-int encrypt_text(const char * encryption, const char * block_cipher, unsigned char encrypted_text[MAX_ENCR_LENGTH], const char * pass, unsigned char * text_to_encrypt, unsigned int text_to_encrypt_size);
+int encrypt_text(const char * encryption, const char * block_cipher, unsigned char ** encrypted_text, const char * pass, unsigned char * text_to_encrypt, unsigned int text_to_encrypt_size);
 
 int decrypt_text(const char * encryption, const char * block_cipher, unsigned char * text_to_decrypt, int encrypted_size, unsigned char * decrypted_text, char* extension, const char * pass);
 
