@@ -6,7 +6,7 @@
 
 const EVP_CIPHER * get_cipher(const char * encryption, const char * block_cipher);
 int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out_buffer[MAX_ENCR_LENGTH], int in_length, const char * pass);
-int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned char *out_buffer, int in_length, const char * pass);
+int decrypt(const EVP_CIPHER *cipher,unsigned char * in,unsigned char *out_buffer, int in_length, const char * pass);
 unsigned char * parse_in_file(const char * file_name, unsigned int *size);
 
 /**
@@ -59,12 +59,10 @@ int encrypt(const EVP_CIPHER *cipher, const unsigned char *in, unsigned char out
 
     EVP_CIPHER_CTX_cleanup(ctx);
 
-    printf("Encriptado en hexa: %s\n", out_buffer);
-
     return out_length + temp_length;
 }
 
-int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned char *out_buffer, int in_length, const char * pass)
+int decrypt(const EVP_CIPHER *cipher,unsigned char * in,unsigned char *out_buffer, int in_length, const char * pass)
 {
 
     OpenSSL_add_all_algorithms();
@@ -90,33 +88,27 @@ int decrypt(const EVP_CIPHER *cipher,unsigned char in[MAX_ENCR_LENGTH],unsigned 
         exit(1);
     }
 
-    printf("Encriptado en hexa %s\n", in);
-
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
     //EVP_CIPHER_CTX_init(ctx);
 
     if (!EVP_DecryptInit_ex(ctx, cipher, NULL, key, iv)){
-        printf("falla el init\n");
+        printf("Falla en el init\n");
     }
 
     if (!EVP_DecryptUpdate(ctx, out_buffer, &out_length, in, in_length)) {
-        printf("En el update\n");
+        printf("Falla en el update\n");
         EVP_CIPHER_CTX_cleanup(ctx);
         return FAILURE;
     }
 
-    printf("Out Length: %d\n", out_length);
-
     if (!EVP_DecryptFinal_ex(ctx, out_buffer + out_length, &temp_length)) {
-        printf("En el final\n");
+        printf("Falla en el final\n");
         EVP_CIPHER_CTX_cleanup(ctx);
         return FAILURE;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
-    printf("in length: %d\n", in_length);
-    printf("TOTAL SIZE: %d\n", out_length + temp_length);
 
     return out_length + temp_length;
 }
@@ -130,10 +122,11 @@ unsigned char * parse_in_file(const char * file_name, unsigned int *size){
     const char *extension = strrchr(file_name, '.');
     int ext_size = strlen(extension) + 1;
 
-    printf("File Name: %s, Extension: %s, size: %d \n", file_name, extension, ext_size);
     file = fopen(file_name, "rb+");
-    if ( file == NULL)
+    if ( file == NULL) {
+        printf("No se pudo abrir el archivo a esconder.\n");
         return FAILURE;
+    }
     fseek(file, 0L, SEEK_END);
     file_size = ftell(file);
     rewind(file);
@@ -158,61 +151,34 @@ unsigned char * parse_in_file(const char * file_name, unsigned int *size){
 }
 
 int encrypt_text(const char * encryption, const char * block_cipher, unsigned char encrypted_text[MAX_ENCR_LENGTH], const char * pass, unsigned char * text_to_encrypt, unsigned int text_to_encrypt_size){
-
-    printf("SIZE TO ENCRYPT: %d\n", text_to_encrypt_size);
-
-    printf("size : %d %d %d %d\n", text_to_encrypt[0], text_to_encrypt[1], text_to_encrypt[2], text_to_encrypt[3]);
-
-    printf("TEXTO PLANO: %s\n", text_to_encrypt + 4);
-
-    printf("Pass: %s, length: %d\n", pass, strlen(pass));
-
     const EVP_CIPHER * cipher= get_cipher(encryption, block_cipher);
+    if (cipher == NULL) {
+        printf("Hubo un error al desecriptar el texto.\n");
+    }
 
     return encrypt(cipher, text_to_encrypt, encrypted_text, text_to_encrypt_size, pass);
 }
 
-int decrypt_text(const char * encryption, const char * block_cipher, unsigned char text_to_decrypt[MAX_ENCR_LENGTH], int encrypted_size, unsigned char * decrypted_text, char* extension, const char * pass){
-
-    printf("DECRYPT ENTER\n");
-    //TODO text
-    //Tengo que recibir el metodo de encripcion ej aes128cbc
-    //Tengo que recibir la encripcion y su tamaño -> tamaño en un int encripcion en un char[]
-    //la encripcion viene de la forma encripcion(tamaño real || datos archivo || extensión)
-    //1. lo desencripto, y recibo el length (que deberia ser igual al que le mande -> todo check en ambos)
-    // y en el out buffer recibo tamaño real || datos archivo || extensión
-    //2. Luego, los primeros 4 bytes son el size, lo extraigo
-    //3. los siguientes size bytes son el mensaje, lo extraigo
-    //4. y lo que queda es la extension, lo extraigo
-    //5. retorno el size del mensaje en el valor de retorno, el mensaje en un buffer y la extension en otro buffer
-
+int decrypt_text(const char * encryption, const char * block_cipher, unsigned char * text_to_decrypt, int encrypted_size, unsigned char * decrypted_text, char* extension, const char * pass){
     const EVP_CIPHER * cipher= get_cipher(encryption, block_cipher);
+    if (cipher == NULL) {
+        printf("Hubo un error al desecriptar el texto.\n");
+    }
 
-    printf("Encription: %s, cipher: %s\n", encryption, block_cipher);
+    unsigned char * info_from_decryption = malloc(encrypted_size);
 
-    printf("Pass: %s, length: %d\n", pass, strlen(pass));
-
-    unsigned char * info_from_decryption = malloc(MAX_ENCR_LENGTH);
-
-    unsigned int decrypted_text_size = decrypt(cipher, text_to_decrypt, info_from_decryption, encrypted_size, pass);
-
-    printf("Se tendria que cumplir creo(? --> %d == %d\n", decrypted_text_size, encrypted_size);
+    decrypt(cipher, text_to_decrypt, info_from_decryption, encrypted_size, pass);
 
     int text_size = 0;
     text_size = text_size | info_from_decryption[0];
     text_size = (text_size << 8) | info_from_decryption[1];
     text_size = (text_size << 8) | info_from_decryption[2];
     text_size = (text_size << 8) | info_from_decryption[3];
-    printf("Text Size: %d\n", text_size);
 
     memcpy(decrypted_text, info_from_decryption + 4, text_size);
 
     char * aux_ext = strrchr((const char *)info_from_decryption + 4 + text_size, '.');
     strcpy(extension, aux_ext);
-
-    printf("Decrypted Text: %s\n", decrypted_text);
-
-    printf("Extension: %s\n", extension);
 
     return text_size;
 }

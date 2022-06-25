@@ -10,6 +10,8 @@
 #include "math.h"
 #include "string.h"
 
+#define EXT_SIZE 10
+
 typedef struct {
     unsigned short int type;                 /* Magic identifier            */
     unsigned int size;                       /* File size in bytes          */
@@ -27,16 +29,13 @@ typedef struct {
     unsigned int ncolours;           /* Number of colours         */
     unsigned int importantcolours;   /* Important colours         */
 } INFOHEADER;
-typedef struct {
-    unsigned char r,g,b,junk;
-} COLOURINDEX;
 
 void readHeader(HEADER * header, INFOHEADER * infoheader, FILE * fptr);
 void set_bmp_lsb1(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsigned char * in_text, unsigned int size);
-void set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int * size);
+unsigned char * set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, unsigned int * size, int encripted);
 void set_bmp_lsb4(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsigned char * in_text, unsigned int size);
-void set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int * size);
+unsigned char * set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, unsigned int * size, int encripted);
 void set_bmp_lsbi(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsigned char * in_text, unsigned int size, HEADER * header);
-void set_out_lsbi(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int * size);
+unsigned char * set_out_lsbi(INFOHEADER * infoheader, FILE * fptr, unsigned int * size, int encripted);
 
 #endif //CRIPTO2022_BMPREADER_H

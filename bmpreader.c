@@ -23,8 +23,8 @@ void readHeader(HEADER * header, INFOHEADER * infoheader, FILE * fptr) {
     ReadUShort(fptr, &header->reserved1, FALSE);
     ReadUShort(fptr, &header->reserved2, FALSE);
     ReadUInt(fptr, &header->offset, FALSE);
-
     /* Read and check the information header */
+
     if (fread(infoheader, sizeof(INFOHEADER), 1, fptr) != 1) {
         fprintf(stderr, "Failed to read BMP info header\n");
         exit(-1);
@@ -35,12 +35,6 @@ void readHeader(HEADER * header, INFOHEADER * infoheader, FILE * fptr) {
 void set_bmp_lsb1(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsigned char * in_text, unsigned int size) {
     int i, j, k, cp=0, b=7;
     unsigned char c, bit;
-
-    int text_size = 0;
-    text_size = text_size | in_text[0];
-    text_size = (text_size << 8) | in_text[1];
-    text_size = (text_size << 8) | in_text[2];
-    text_size = (text_size << 8) | in_text[3];
 
     for (j=0;j<infoheader->height;j++) {
         for (i=0;i<infoheader->width;i++) {
@@ -63,11 +57,13 @@ void set_bmp_lsb1(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsign
     } /* j */
 }
 
-void set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int * size) {
-    int i, j, k, p=3, b=7, size_c = 0;
+unsigned char * set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, unsigned int * size, int encripted) {
+    int i, j, k, p=3, b=7;
+    unsigned int size_c = 0;
     unsigned char c, t=0, bit;
     unsigned char chars[4];
-    int * aux_size;
+    unsigned char * out;
+    unsigned int * aux_size;
 
     for (j=0;j<infoheader->height;j++) {
         for (i=0;i<infoheader->width;i++) {
@@ -87,27 +83,31 @@ void set_out_lsb1(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int
                     if (p >= 0) {
                         chars[p] = t;
                         if (--p < 0) {
-                            aux_size = (int *) chars;
+                            aux_size = (unsigned int *) chars;
                             *size = *aux_size;
+                            if (8*(*size+4) > infoheader->imagesize) {
+                                printf("El archivo bmp no puede albergar el archivo ocultado completamente\n");
+                                return NULL;
+                            }
+                            out = malloc(*size + EXT_SIZE);
                         }
-                    } else if (size_c < *size || t != 0) {
+                    } else if ((encripted && size_c < *size) || (!encripted && (size_c < *size || t != 0))) {
                         out[size_c++] = t;
                     } else {
                         out[size_c] = 0;
-                        return;
+                        return out;
                     }
                     t = 0;
                 }
             } /* k */
         } /* i */
     } /* j */
+    return NULL;
 }
 
 void set_bmp_lsb4(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsigned char * in_text, unsigned int size) {
-    int i, j, k, p=3, cp=0, b=1, ep=0, inflag = 0, endflag = 0;
-    unsigned char c, t, bit;
-
-    unsigned char * chars = (unsigned char *)&size;
+    int i, j, k, cp=0, b=1;
+    unsigned char c, bit;
 
     for (j=0;j<infoheader->height;j++) {
         for (i=0;i<infoheader->width;i++) {
@@ -130,11 +130,13 @@ void set_bmp_lsb4(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsign
     } /* j */
 }
 
-void set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int * size) {
-    int i, j, k, p=3, b=1, size_c = 0;
+unsigned char * set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, unsigned int * size, int encripted) {
+    int i, j, k, p=3, b=1;
+    unsigned int size_c = 0;
     unsigned char c, t=0, bit;
     unsigned char chars[4];
-    int * aux_size;
+    unsigned int * aux_size;
+    unsigned char * out;
 
     for (j=0;j<infoheader->height;j++) {
         for (i=0;i<infoheader->width;i++) {
@@ -153,20 +155,26 @@ void set_out_lsb4(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int
                     if (p >= 0) {
                         chars[p] = t;
                         if (--p < 0) {
-                            aux_size = (int *) chars;
+                            aux_size = (unsigned int *) chars;
                             *size = *aux_size;
+                            if (2*(*size+4) > infoheader->imagesize) {
+                                printf("El archivo bmp no puede albergar el archivo ocultado completamente\n");
+                                return NULL;
+                            }
+                            out = malloc(*size + EXT_SIZE);
                         }
-                    } else if (size_c < *size || t != 0) {
+                    } else if ((encripted && size_c < *size) || (!encripted && (size_c < *size || t != 0))) {
                         out[size_c++] = t;
                     } else {
                         out[size_c] = 0;
-                        return;
+                        return out;
                     }
                     t=0;
                 }
             } /* k */
         } /* i */
     } /* j */
+    return NULL;
 }
 
 void set_bmp_lsbi(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsigned char * in_text, unsigned int size, HEADER * header) {
@@ -240,12 +248,14 @@ void set_bmp_lsbi(INFOHEADER * infoheader, FILE * fptr, FILE * out, const unsign
     } /* j */
 }
 
-void set_out_lsbi(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int * size) {
-    int i, j, k, p=3, b=7, size_c=0, pp=0;
+unsigned char * set_out_lsbi(INFOHEADER * infoheader, FILE * fptr, unsigned int * size, int encripted) {
+    int i, j, k, p=3, b=7, pp=0;
+    unsigned int size_c=0;
     unsigned char c, t=0, bit, stbits;
     unsigned char chars[4];
     int pattern[4];
-    int * aux_size;
+    unsigned int * aux_size;
+    unsigned char * out;
 
     for (j=0;j<infoheader->height;j++) {
         for (i=0;i<infoheader->width;i++) {
@@ -273,14 +283,19 @@ void set_out_lsbi(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int
                         if (p >= 0) {
                             chars[p] = t;
                             if (--p < 0) {
-                                aux_size = (int *) chars;
+                                aux_size = (unsigned int *) chars;
                                 *size = *aux_size;
+                                if (8*(*size+4)+4 > infoheader->imagesize) {
+                                    printf("El archivo bmp no puede albergar el archivo ocultado completamente\n");
+                                    return NULL;
+                                }
+                                out = malloc(*size + EXT_SIZE);
                             }
-                        } else if (size_c < *size || t != 0) {
+                        } else if ((encripted && size_c < *size) || (!encripted && (size_c < *size || t != 0))) {
                             out[size_c++] = t;
                         } else {
                             out[size_c] = 0;
-                            return;
+                            return out;
                         }
                         t = 0;
                     }
@@ -288,6 +303,7 @@ void set_out_lsbi(INFOHEADER * infoheader, FILE * fptr, unsigned char * out, int
             } /* k */
         } /* i */
     } /* j */
+    return NULL;
 }
 
 /*

@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_ENCR_LENGTH 50000
+#define MAX_ENCR_LENGTH 150000
 #define FAILURE -1
 
 /**
@@ -35,7 +35,7 @@
  */
 int encrypt_text(const char * encryption, const char * block_cipher, unsigned char encrypted_text[MAX_ENCR_LENGTH], const char * pass, unsigned char * text_to_encrypt, unsigned int text_to_encrypt_size);
 
-int decrypt_text(const char * encryption, const char * block_cipher, unsigned char text_to_decrypt[MAX_ENCR_LENGTH], int encrypted_size, unsigned char * decrypted_text, char* extension, const char * pass);
+int decrypt_text(const char * encryption, const char * block_cipher, unsigned char * text_to_decrypt, int encrypted_size, unsigned char * decrypted_text, char* extension, const char * pass);
 
 unsigned char * parse_in_file(const char * file_name, unsigned int *size);
 
